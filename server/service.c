@@ -13,7 +13,16 @@
 #include "sdp_ctrl_client.h"
 #include "bstrlib.h"
 #include "service.h"
-
+// SHOVRA
+#include <stdio.h>
+#include <stdlib.h> 
+#include <errno.h> 
+#include <string.h> 
+#include <netdb.h> 
+#include <sys/types.h> 
+#include <netinet/in.h> 
+#include <sys/socket.h>
+#include <unistd.h>
 
 #define MAX_REVERSE_SERVICE_KEY_LEN  MAX_PORT_STR_LEN + MAX_IPV4_STR_LEN + MAX_PORT_STR_LEN + 2
 
@@ -450,6 +459,98 @@ static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array
     }
 }
 
+void shovra_concept1(){        
+    pid_t parent = getpid();
+    pid_t  pid = fork();
+    int status;
+    if (pid == -1){
+        printf("can't fork, error occurred\n");
+        exit(EXIT_FAILURE);
+    }    
+    else if (pid == 0){
+        char *programName = "scp";
+        char *args[] = {programName, "-i", "/home/sdp/.ssh/id_ed25519", "/home/sdp/myfile.txt", "sdp@172.16.31.121:/home/sdp", NULL}; 
+        execvp(programName, args);
+
+        exit(0);
+    }
+    else{
+        waitpid(pid, &status, 0);
+    }
+
+    pid = fork();
+    if (pid == -1){
+        printf("can't fork, error occurred\n");
+        exit(EXIT_FAILURE);
+    }
+    else if (pid == 0){
+        char *programName = "ssh";
+        char *args[] = {programName, "-i", "/home/sdp/.ssh/id_ed25519", "sdp@172.16.31.121", "kill -HUP 7135", NULL};
+        // ssh -i /home/sdp/.ssh/id_ed25519 sdp@172.16.31.121 "kill -HUP 7135"
+        execvp(programName, args);
+
+        exit(0);
+    }
+    else{
+        waitpid(pid, &status, 0);
+    }
+}
+
+void shovra_concept2(json_object *jdata){
+    // Code adopted from: https://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpclient.c
+
+    
+    char *hostname = "192.168.31.121";
+    int port = 5001;
+
+    /* socket: create the socket */
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("ERROR opening socket");
+        return;
+    }
+
+    /* gethostbyname: get the server's DNS entry */
+    struct hostent *server = gethostbyname(hostname);
+    if (server == NULL) {
+        perror("ERROR, no such host exists");
+        return;
+    }
+
+    /* build the server's Internet address */
+    struct sockaddr_in serveraddr;
+    bzero((char *) &serveraddr, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&serveraddr.sin_addr.s_addr, server->h_length);
+    serveraddr.sin_port = htons(port);
+
+    /* connect: create a connection with the server */
+    if (connect(sockfd, &serveraddr, sizeof(serveraddr)) < 0){
+        perror("ERROR connecting");   
+        return;
+    }      
+    
+    int BUFSIZE = 1024*1024;
+    char buf[BUFSIZE];
+
+    /* send the message line to the server */
+    bzero(buf, BUFSIZE);
+    strcpy(buf, json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PLAIN));    
+    if (write(sockfd, buf, strlen(buf)) < 0){
+      perror("ERROR writing to socket");
+      return;
+    }
+
+    /* print the server's reply */
+    bzero(buf, BUFSIZE);
+    if (read(sockfd, buf, BUFSIZE) < 0){
+      perror("ERROR reading from socket");
+      return;
+    }
+    printf("\n---\nEcho from server: %s\n---\n", buf);
+    
+    close(sockfd);
+}
 
 /* Take a json data array from a controller message
  * Alter/recreate the hash table based on the action
@@ -458,6 +559,12 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
 {
     int rv = FWKNOPD_SUCCESS;
     int service_array_len = 0;
+
+    // SHOVRA =================================================================================================
+    printf("\n----\n%s\n----\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY ));
+    // shovra_concept1();
+    shovra_concept2(jdata);
+    // SHOVRA =================================================================================================
 
     if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
     {
