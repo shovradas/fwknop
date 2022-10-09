@@ -459,49 +459,10 @@ static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array
     }
 }
 
-void shovra_concept1(){        
-    pid_t parent = getpid();
-    pid_t  pid = fork();
-    int status;
-    if (pid == -1){
-        printf("can't fork, error occurred\n");
-        exit(EXIT_FAILURE);
-    }    
-    else if (pid == 0){
-        char *programName = "scp";
-        char *args[] = {programName, "-i", "/home/sdp/.ssh/id_ed25519", "/home/sdp/myfile.txt", "sdp@172.16.31.121:/home/sdp", NULL}; 
-        execvp(programName, args);
-
-        exit(0);
-    }
-    else{
-        waitpid(pid, &status, 0);
-    }
-
-    pid = fork();
-    if (pid == -1){
-        printf("can't fork, error occurred\n");
-        exit(EXIT_FAILURE);
-    }
-    else if (pid == 0){
-        char *programName = "ssh";
-        char *args[] = {programName, "-i", "/home/sdp/.ssh/id_ed25519", "sdp@172.16.31.121", "kill -HUP 7135", NULL};
-        // ssh -i /home/sdp/.ssh/id_ed25519 sdp@172.16.31.121 "kill -HUP 7135"
-        execvp(programName, args);
-
-        exit(0);
-    }
-    else{
-        waitpid(pid, &status, 0);
-    }
-}
-
-void shovra_concept2(json_object *jdata){
+// Function Added by Shovra
+void send_app_policy(char* host, int port, json_object *jdata){
     // Code adopted from: https://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpclient.c
-
-    
-    char *hostname = "192.168.31.121";
-    int port = 5001;
+    // char *host = "192.168.31.121";
 
     /* socket: create the socket */
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -511,7 +472,7 @@ void shovra_concept2(json_object *jdata){
     }
 
     /* gethostbyname: get the server's DNS entry */
-    struct hostent *server = gethostbyname(hostname);
+    struct hostent *server = gethostbyname(host);
     if (server == NULL) {
         perror("ERROR, no such host exists");
         return;
@@ -547,9 +508,33 @@ void shovra_concept2(json_object *jdata){
       perror("ERROR reading from socket");
       return;
     }
-    printf("\n---\nEcho from server: %s\n---\n", buf);
+    printf("Reply from Policy Adapter: %s\n", buf);
     
     close(sockfd);
+}
+
+// Function Added by Shovra
+void process_app_policy(json_object *jdata){      
+    char *nat_ip = NULL;   
+    json_object *row;
+    for(int i=0; i<json_object_array_length(jdata); i++)
+    {
+        row = json_object_array_get_idx(jdata, i);
+        json_object *app_policy;
+        if(json_object_object_get_ex(row, "app_policy", &app_policy)){
+            char *policy_adapter_host;
+            json_object *nat_ip;
+            if(json_object_object_get_ex(row, "nat_ip", &nat_ip)){
+                policy_adapter_host = json_object_get_string(nat_ip);
+                if(strcmp(policy_adapter_host, "")==0)
+                    policy_adapter_host = "127.0.0.1";
+            }
+            printf("\nSending app policy to adapter at %s\n", policy_adapter_host);
+            send_app_policy(policy_adapter_host, 5001, app_policy);     
+            printf("...................................................\n\n");
+        }
+        app_policy = NULL;
+    }
 }
 
 /* Take a json data array from a controller message
@@ -560,11 +545,10 @@ int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
     int rv = FWKNOPD_SUCCESS;
     int service_array_len = 0;
 
-    // SHOVRA =================================================================================================
-    printf("\n----\n%s\n----\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY ));
-    // shovra_concept1();
-    shovra_concept2(jdata);
-    // SHOVRA =================================================================================================
+    // Lines added by Shovra ==================================================================================
+    printf("\nFull Message ----\n%s\n----\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY ));
+    process_app_policy(jdata);
+    // Lines added by Shovra ==================================================================================
 
     if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
     {
