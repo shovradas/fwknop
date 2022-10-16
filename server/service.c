@@ -513,9 +513,38 @@ void send_app_policy(char* host, int port, json_object *jdata){
     close(sockfd);
 }
 
+int get_policy_adapter_port(fko_srv_options_t *opts){
+    printf("\n******\n%s\n******\n", opts->config[0]);
+
+    char* config_file_path = opts->config[0];   
+    FILE *fp = fopen(config_file_path, "r");
+
+    char line[255];
+    char option[255];
+    char value_temp[255];
+    char value[255];
+    int port = 0;
+    while(fgets(line, sizeof(line), fp)) {        
+        if(line[0]!='#' && line[0]!='\n'){
+            sscanf(line, "%s %s%[;]", option, value_temp);            
+            if (strcmp(option, "POLICY_ADAPTER_PORT")==0){
+                strncpy(value, value_temp, strlen(value_temp)-1);
+                // printf("%s: %s\n", option, value);
+                port = atoi(value);
+            }
+        }            
+    }
+    fclose(fp);    
+    if (port == 0)
+        perror("POLICY_ADAPTER_PORT was not defined in config file");
+        exit(1);
+
+    return port;
+}
+
 // Function Added by Shovra
-void process_app_policy(json_object *jdata){      
-    char *nat_ip = NULL;   
+void process_app_policy(fko_srv_options_t *opts, json_object *jdata){      
+    char *nat_ip = NULL;
     json_object *row;
     for(int i=0; i<json_object_array_length(jdata); i++)
     {
@@ -530,7 +559,7 @@ void process_app_policy(json_object *jdata){
                     policy_adapter_host = "127.0.0.1";
             }
             printf("\nSending app policy to adapter at %s\n", policy_adapter_host);
-            send_app_policy(policy_adapter_host, 5001, app_policy);     
+            send_app_policy(policy_adapter_host, get_policy_adapter_port(opts), app_policy);     
             printf("...................................................\n\n");
         }
         app_policy = NULL;
@@ -541,13 +570,13 @@ void process_app_policy(json_object *jdata){
  * Alter/recreate the hash table based on the action
  */
 int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
-{
+{    
     int rv = FWKNOPD_SUCCESS;
     int service_array_len = 0;
 
     // Lines added by Shovra ==================================================================================
     printf("\nFull Message ----\n%s\n----\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY ));
-    process_app_policy(jdata);
+    process_app_policy(opts, jdata);
     // Lines added by Shovra ==================================================================================
 
     if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
