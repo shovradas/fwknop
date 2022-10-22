@@ -517,8 +517,6 @@ void send_app_policy(char* host, int port, json_object *jdata)
 // Function Added by Shovra
 int get_policy_adapter_port(fko_srv_options_t *opts)
 {
-    printf("\n******\n%s\n******\n", opts->config[0]);
-
     char* config_file_path = opts->config[0];   
     FILE *fp = fopen(config_file_path, "r");
 
@@ -529,20 +527,30 @@ int get_policy_adapter_port(fko_srv_options_t *opts)
     int port = 0;
     while(fgets(line, sizeof(line), fp)) {        
         if(line[0]!='#' && line[0]!='\n'){
-            sscanf(line, "%s %s%[;]", option, value_temp);            
+            bzero(option, sizeof(option));
+            bzero(value_temp, sizeof(value_temp));
+            bzero(value, sizeof(value));
+
+            sscanf(line, "%s %s", option, value_temp);
             if (strcmp(option, "POLICY_ADAPTER_PORT")==0){
-                strncpy(value, value_temp, strlen(value_temp)-1);
-                // printf("%s: %s\n", option, value);
-                port = atoi(value);
+                for(int i=0; i<sizeof(value_temp); i++){
+                    if(value_temp[i]==';')
+                        break;
+                    value[i] = value_temp[i];
+                }
+                port = atoi(value);   
+                break;
             }
-        }            
+        }       
+        bzero(line, sizeof(line));
     }
-    fclose(fp);    
-    if (port == 0)
+    fclose(fp);
+    if (port == 0){
         perror("POLICY_ADAPTER_PORT was not defined in config file");
         exit(1);
+    }
 
-    return port;
+    return port;    
 }
 
 // Function Added by Shovra
@@ -550,6 +558,7 @@ void process_app_policy(fko_srv_options_t *opts, json_object *jdata)
 {
     printf("\n====================\nFull Service Message\n--------------------\n%s\n====================\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY));
     char *nat_ip = NULL;
+    int policy_adapter_port;
     json_object *row;
     for(int i=0; i<json_object_array_length(jdata); i++)
     {
@@ -563,8 +572,9 @@ void process_app_policy(fko_srv_options_t *opts, json_object *jdata)
                 if(strcmp(policy_adapter_host, "")==0)
                     policy_adapter_host = "127.0.0.1";
             }
-            printf("\nSending app policy to adapter at %s\n", policy_adapter_host);
-            send_app_policy(policy_adapter_host, get_policy_adapter_port(opts), app_policy);     
+            policy_adapter_port = get_policy_adapter_port(opts);
+            printf("\nSending app policy to adapter at %s:%d\n", policy_adapter_host, policy_adapter_port);
+            send_app_policy(policy_adapter_host, policy_adapter_port, app_policy);     
             printf(".........................................\n\n");
         }
         app_policy = NULL;
