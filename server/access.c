@@ -2317,6 +2317,10 @@ process_access_msg(fko_srv_options_t *opts, int action, json_object *jdata)
     int access_array_len = 0;
     int is_err = 0;
 
+    // Line added by Shovra ==================================================================================
+    printf("\n====================\nFull Access Message\n--------------------\n%s\n====================\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY )); 
+    // Line added by Shovra ==================================================================================
+
     if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
     {
         log_msg(LOG_ERR, "process_access_msg(): jdata is invalid");

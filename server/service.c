@@ -460,7 +460,8 @@ static void remove_service_data_nodes(fko_srv_options_t *opts, int service_array
 }
 
 // Function Added by Shovra
-void send_app_policy(char* host, int port, json_object *jdata){
+void send_app_policy(char* host, int port, json_object *jdata)
+{
     // Code adopted from: https://www.cs.cmu.edu/afs/cs/academic/class/15213-f99/www/class26/tcpclient.c
     // char *host = "192.168.31.121";
 
@@ -513,7 +514,9 @@ void send_app_policy(char* host, int port, json_object *jdata){
     close(sockfd);
 }
 
-int get_policy_adapter_port(fko_srv_options_t *opts){
+// Function Added by Shovra
+int get_policy_adapter_port(fko_srv_options_t *opts)
+{
     printf("\n******\n%s\n******\n", opts->config[0]);
 
     char* config_file_path = opts->config[0];   
@@ -543,7 +546,9 @@ int get_policy_adapter_port(fko_srv_options_t *opts){
 }
 
 // Function Added by Shovra
-void process_app_policy(fko_srv_options_t *opts, json_object *jdata){      
+void process_app_policy(fko_srv_options_t *opts, json_object *jdata)
+{
+    printf("\n====================\nFull Service Message\n--------------------\n%s\n====================\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY));
     char *nat_ip = NULL;
     json_object *row;
     for(int i=0; i<json_object_array_length(jdata); i++)
@@ -560,7 +565,7 @@ void process_app_policy(fko_srv_options_t *opts, json_object *jdata){
             }
             printf("\nSending app policy to adapter at %s\n", policy_adapter_host);
             send_app_policy(policy_adapter_host, get_policy_adapter_port(opts), app_policy);     
-            printf("...................................................\n\n");
+            printf(".........................................\n\n");
         }
         app_policy = NULL;
     }
@@ -571,13 +576,12 @@ void process_app_policy(fko_srv_options_t *opts, json_object *jdata){
  */
 int process_service_msg(fko_srv_options_t *opts, int action, json_object *jdata)
 {    
+    // Line added by Shovra ==================================================================================    
+    process_app_policy(opts, jdata);
+    // Line added by Shovra ==================================================================================
+    
     int rv = FWKNOPD_SUCCESS;
     int service_array_len = 0;
-
-    // Lines added by Shovra ==================================================================================
-    printf("\nFull Message ----\n%s\n----\n", json_object_to_json_string_ext(jdata, JSON_C_TO_STRING_PRETTY ));
-    process_app_policy(opts, jdata);
-    // Lines added by Shovra ==================================================================================
 
     if(jdata == NULL || json_object_get_type(jdata) == json_type_null)
     {
